@@ -8,7 +8,7 @@ const path = require('path');
 const PORT = Number(process.env.PORT || 8787);
 const UAZAPI_BASE_URL = (process.env.UAZAPI_BASE_URL || 'https://mgteam.uazapi.com').replace(/\/+$/, '');
 const UAZAPI_TOKEN = process.env.UAZAPI_TOKEN || '';
-const PUBLIC_FILE = process.env.PUBLIC_FILE || path.join(__dirname, 'vitacrm_index_11_upgraded.html');
+const PUBLIC_FILE = process.env.PUBLIC_FILE || path.join(__dirname, 'vitacrm_saude_premium_inboxes.html');
 const webhookEvents = [];
 const sseClients = new Set();
 
