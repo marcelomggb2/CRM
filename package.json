@@ -1,0 +1,12 @@
+{
+  "name": "vitacrm-uazapi-hostinger",
+  "version": "1.0.0",
+  "private": true,
+  "main": "vitacrm_uazapi_backend.js",
+  "scripts": {
+    "start": "node vitacrm_uazapi_backend.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
