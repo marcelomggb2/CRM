@@ -8,6 +8,7 @@ const path = require('path');
 const PORT = Number(process.env.PORT || 8787);
 const UAZAPI_BASE_URL = (process.env.UAZAPI_BASE_URL || 'https://mgteam.uazapi.com').replace(/\/+$/, '');
 const UAZAPI_TOKEN = process.env.UAZAPI_TOKEN || '';
+const VITACRM_PROXY_SECRET = process.env.VITACRM_PROXY_SECRET || '';
 const PUBLIC_FILE = process.env.PUBLIC_FILE || path.join(__dirname, 'vitacrm_saude_premium_inboxes.html');
 const webhookEvents = [];
 const sseClients = new Set();
@@ -64,6 +65,25 @@ async function uazapi(pathname, { method = 'GET', body } = {}) {
   return data;
 }
 
+function hasProxyAccess(req, url) {
+  if (!VITACRM_PROXY_SECRET) return true;
+  const provided = req.headers['x-vitacrm-proxy-secret'] || url.searchParams.get('secret');
+  return provided === VITACRM_PROXY_SECRET;
+}
+
+function sanitizeStatus(data) {
+  const clone = JSON.parse(JSON.stringify(data || {}));
+  if (clone.instance) {
+    delete clone.instance.token;
+    delete clone.instance.openai_apikey;
+    delete clone.instance.qrcode;
+    delete clone.instance.paircode;
+    delete clone.instance.adminField01;
+    delete clone.instance.adminField02;
+  }
+  return clone;
+}
+
 function broadcast(event, data) {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const client of sseClients) client.write(payload);
@@ -89,11 +109,13 @@ async function syncHistory(body = {}) {
   return { labels, conversations, syncedAt: new Date().toISOString() };
 }
 
-async function handleApi(req, res, pathname) {
+async function handleApi(req, res, url) {
+  const pathname = url.pathname;
   try {
     if (req.method === 'OPTIONS') return sendJson(res, 204, {});
+    if (!hasProxyAccess(req, url)) return sendJson(res, 401, { error: 'Proxy nao autorizado' });
     const body = req.method === 'POST' ? await readBody(req) : {};
-    if (pathname === '/api/uazapi/status') return sendJson(res, 200, await uazapi('/instance/status'));
+    if (pathname === '/api/uazapi/status') return sendJson(res, 200, sanitizeStatus(await uazapi('/instance/status')));
     if (pathname === '/api/uazapi/labels') return sendJson(res, 200, await uazapi('/labels'));
     if (pathname === '/api/uazapi/chat/find') return sendJson(res, 200, await uazapi('/chat/find', { method: 'POST', body }));
     if (pathname === '/api/uazapi/message/find') return sendJson(res, 200, await uazapi('/message/find', { method: 'POST', body }));
@@ -133,6 +155,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/') return serveHtml(res);
   if (url.pathname === '/webhook/uazapi' && req.method === 'POST') return handleWebhook(req, res);
   if (url.pathname === '/api/events') {
+    if (!hasProxyAccess(req, url)) return sendJson(res, 401, { error: 'Proxy nao autorizado' });
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -144,7 +167,7 @@ const server = http.createServer(async (req, res) => {
     req.on('close', () => sseClients.delete(res));
     return;
   }
-  if (url.pathname.startsWith('/api/')) return handleApi(req, res, url.pathname);
+  if (url.pathname.startsWith('/api/')) return handleApi(req, res, url);
   return sendJson(res, 404, { error: 'Nao encontrado' });
 });
 

@@ -431,6 +431,7 @@ const UAZAPI_DEFAULTS={
   num:'556291841915',
   testNum:'556291841915',
   proxyUrl:'',
+  proxySecret:'',
   webhookUrl:'',
   live:false,
   readchat:true,
@@ -519,6 +520,7 @@ async function uazapiRequest(path,{method='GET',body=null,cfg=getUazapiConfig(),
     };
     const url=proxy?`${proxy}${proxyRoutes[path]||path}`:`${base}${path}`;
     const headers={Accept:'application/json'};
+    if(proxy&&cfg.proxySecret)headers['x-vitacrm-proxy-secret']=cfg.proxySecret;
     if(!proxy)headers.token=cfg.key;
     const options={method,headers,signal:controller.signal};
     if(body!==null&&body!==undefined){
@@ -570,6 +572,7 @@ function collectUazapiFormConfig(){
     num:normalizeUazapiPhone(val('cfg-num-s')!==undefined?val('cfg-num-s'):current.num),
     testNum:normalizeUazapiPhone(val('cfg-testnum-s')!==undefined?val('cfg-testnum-s'):(current.testNum||current.num)),
     proxyUrl:val('cfg-proxy-s')!==undefined?val('cfg-proxy-s'):current.proxyUrl,
+    proxySecret:val('cfg-proxysecret-s')!==undefined?val('cfg-proxysecret-s'):current.proxySecret,
     webhookUrl:val('cfg-webhook-s')!==undefined?val('cfg-webhook-s'):current.webhookUrl,
     live:checked('cfg-live-s',!!current.live),
     readchat:checked('cfg-readchat-s',current.readchat!==false),
@@ -658,7 +661,7 @@ function startUazapiLive(opts={}){
   stopUazapiLive({silent:true});
   const base=normalizeUazapiBase(cfg.url);
   const proxy=normalizeUazapiBase(cfg.proxyUrl);
-  const url=proxy?`${proxy}/api/events`:`${base}/sse?token=${encodeURIComponent(cfg.key)}&events=messages&events=messages_update&excludeMessages=isGroupYes&excludeMessages=fromMeYes`;
+  const url=proxy?`${proxy}/api/events${cfg.proxySecret?`?secret=${encodeURIComponent(cfg.proxySecret)}`:''}`:`${base}/sse?token=${encodeURIComponent(cfg.key)}&events=messages&events=messages_update&excludeMessages=isGroupYes&excludeMessages=fromMeYes`;
   uazapiLiveState='connecting';
   saveUazapiState({live:'connecting'});
   uazapiLiveSource=new EventSource(url);
@@ -4053,6 +4056,7 @@ const pages={
             <div class="field"><label>Mensagens por chat</label><input id="cfg-msglimit-s" type="number" min="1" max="200" value="${Number(latestCfg.historyMsgLimit||30)}"></div>
             <div class="field full"><label>Mensagem de teste</label><input id="cfg-testmsg-s" value="Teste VitaCRM: UAZAPI conectada com sucesso." placeholder="Mensagem que sera enviada no teste"></div>
             <div class="field full"><label>Backend proxy opcional</label><input id="cfg-proxy-s" value="${escapeHtml(latestCfg.proxyUrl||'')}" placeholder="http://127.0.0.1:8787"></div>
+            <div class="field full"><label>Segredo do backend proxy</label><input id="cfg-proxysecret-s" type="password" value="${escapeHtml(latestCfg.proxySecret||'')}" placeholder="segredo configurado na Hostinger"></div>
             <div class="field full"><label>Webhook publico opcional</label><input id="cfg-webhook-s" value="${escapeHtml(latestCfg.webhookUrl||'')}" placeholder="https://seu-backend.com/webhooks/uazapi"></div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:6px 0 14px">
